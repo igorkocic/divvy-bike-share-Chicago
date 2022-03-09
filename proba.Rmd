@@ -1,0 +1,194 @@
+---
+title: "Divvy bike shaing company"
+author: "Igor Kocic"
+date: '2022-03-09'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#How Does a Bike-Share Navigate Speedy Success?
+##This exploratory analysis case study is towards Capstose project requirement for Google Data Analytics Professional Certificate. The case study involves a bikeshare company's data of its customer's trip details over a 12 month period (February 2021 - January 2022). The data has been made available by Motivate International Inc.The main goal of analysis is to give insights to marketing team how annual member and casual riders use Cyclistic bikes differently. 
+
+**Part 1**
+Loading necessary packages
+```{r}
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(janitor)
+library(data.table)
+library(tidyr)
+```
+
+**Part 2**
+DATA COLLECTING
+Loading datasets of 12 months
+```{r}
+tripdata_202102<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202102-divvy-tripdata.csv")
+tripdata_202103<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202103-divvy-tripdata.csv")
+tripdata_202104<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202104-divvy-tripdata.csv")
+tripdata_202105<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202105-divvy-tripdata.csv")
+tripdata_202106<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202106-divvy-tripdata.csv")
+tripdata_202107<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202107-divvy-tripdata.csv")
+tripdata_202108<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202108-divvy-tripdata.csv")
+tripdata_202109<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202109-divvy-tripdata.csv")
+tripdata_202110<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202110-divvy-tripdata.csv")
+tripdata_202111<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202111-divvy-tripdata.csv")
+tripdata_202112<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202112-divvy-tripdata.csv")
+tripdata_202201<-read.csv("C:/Users/Gigi/Desktop/BikeSharing/202201-divvy-tripdata.csv")
+```
+
+**Part 3**
+DATA WRANGLING
+Checking column names of each file in order to have consistent data
+```{r}
+colnames(tripdata_202102)
+colnames(tripdata_202103)
+colnames(tripdata_202104)
+colnames(tripdata_202105)
+colnames(tripdata_202106)
+colnames(tripdata_202107)
+colnames(tripdata_202108)
+colnames(tripdata_202109)
+colnames(tripdata_202110)
+colnames(tripdata_202111)
+colnames(tripdata_202112)
+colnames(tripdata_202201)
+```
+
+Inspecting data structures and data types for incongruencies
+```{r}
+str(tripdata_202102)
+str(tripdata_202103)
+str(tripdata_202104)
+str(tripdata_202105)
+str(tripdata_202106)
+str(tripdata_202107)
+str(tripdata_202108)
+str(tripdata_202109)
+str(tripdata_202110)
+str(tripdata_202111)
+str(tripdata_202112)
+str(tripdata_202201)
+```
+
+Combining all datasets into one big data frame
+```{r}
+all_trips<-bind_rows(tripdata_202102,tripdata_202103,tripdata_202104, tripdata_202105, tripdata_202106, tripdata_202107, tripdata_202108, tripdata_202109, tripdata_202110, tripdata_202111, tripdata_202112, tripdata_202201)
+```
+
+Removing unnecessary columns - start_lat, start_lng, end_lat, end_lng
+```{r}
+#Removing unnecessary columns - start_lat, start_lng, end_lat, end_lng
+all_trips<-all_trips %>% select(-c(start_lat, start_lng, end_lat, end_lng))
+```
+
+Removing empty rows
+```{r}
+all_trips<-janitor::remove_empty(all_trips, which=c("rows"))
+```
+
+Renaming column names for better readability
+```{r}
+all_trips<-all_trips %>% rename(ride_type=rideable_type, start_time=started_at, end_time=ended_at)
+```
+
+Extracting time elements from start_time in order to aggregate ride data for each month, day, year or day of the week
+```{r}
+all_trips$date<-as.Date(all_trips$start_time) #Creating new variable that is formatted as yyyy-mm-dd in order to create following variables(month, day, year, day of the week)
+all_trips$month<-format(as.Date(all_trips$date),"%m")
+all_trips$day<-format(as.Date(all_trips$date),"%d")
+all_trips$year<-format(as.Date(all_trips$date), "%Y")
+all_trips$day_of_week<-format(as.Date(all_trips$date),"%A")
+```
+
+Formatting start_time and end_time columns in order to extract minutes of trip duration
+```{r}
+all_trips$start_time<-lubridate::ymd_hms(all_trips$start_time)
+all_trips$end_time<-lubridate::ymd_hms(all_trips$end_time)
+```
+
+Creating column for trip duration that is double value calculated in minutes
+```{r}
+all_trips$trip_duration<-difftime(all_trips$end_time,all_trips$start_time,units="mins")
+```
+
+Convert column trip_duration to numeric(double) in order to run calculations
+```{r}
+all_trips$trip_duration<-as.double(all_trips$trip_duration)
+```
+
+Filtering start station name that contains word "test" and checking for trip duration that are less than 0
+```{r}
+filter(all_trips, start_station_name %like% "Test")
+filter(all_trips, trip_duration<0)
+```
+
+Removing rows where start_station_name contains "Test" and rows where trip_duration<0
+```{r}
+all_trips<-all_trips[!(all_trips$trip_duration<0 | all_trips$start_station_name %like% "Test"),]
+```
+
+Summarising trip_duration
+```{r}
+summary(all_trips$trip_duration)
+```
+
+Checking extreme values - Filtering first 30 rows of maximum trip_duration in order to see if the data frame consists data anomality
+```{r}
+top_n(all_trips, 30, trip_duration)
+```
+
+Summarising min,max,mean,median values for both members and casual members
+```{r}
+all_trips %>% group_by(member_casual) %>% summarise(min_trip_duration=min(trip_duration), max_trip_duration= max(trip_duration), mean_trip_duration=mean(trip_duration), median_trip_duration=median(trip_duration))
+```
+
+Summarising number_of_rides and average trip_duration by member_casual and day_of_week
+```{r}
+all_trips %>% group_by(member_casual, day_of_week) %>% summarise(number_of_rides=n(),average_trip_duration=mean(trip_duration)) %>% arrange(member_casual, desc(number_of_rides))
+```
+
+Ordering day_of_week variable
+```{r}
+all_trips$day_of_week<-ordered(all_trips$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+Summarising trip_duration means by member_casual
+```{r}
+aggregate(all_trips$trip_duration~all_trips$day_of_week+all_trips$member_casual, FUN=mean)
+```
+
+DATA VISUALIZATION
+Creating bar chart of number of rides by customer type and day of week
+```{r}
+all_trips %>% group_by(member_casual, day_of_week) %>% summarise(number_of_rides=n()) %>% arrange(member_casual, day_of_week) %>% ggplot(aes(x=day_of_week, y=number_of_rides, fill=member_casual))+geom_col(position="dodge")+
+  labs(title="Number of rides by customer type and day of week")
+```
+
+Creating bar chart of average_trip_duration by customer type and month
+```{r}
+all_trips %>% group_by(member_casual,month) %>% summarise(average_number_of_trip=mean(trip_duration)) %>% arrange(member_casual,month) %>% ggplot(aes(x=month, y=average_number_of_trip, fill=member_casual))+geom_col(position="dodge")+
+  labs(title="Average trip duration by month and customer type")
+```
+
+Creating new variable "time" in order to have a variable for a bike demand graph over 24 hr period
+```{r}
+all_trips$time=format(all_trips$start_time, format="%H:%M")
+all_trips$time=as.POSIXct(all_trips$time, format= "%H:%M")
+```
+
+Creating bike demand per hour graph
+```{r}
+all_trips %>% group_by(time,member_casual) %>% summarise(number_of_rides=n()) %>% arrange(time,member_casual) %>% ggplot(aes(x=time, y=number_of_rides, color=member_casual, group=member_casual))+geom_line()+
+scale_x_datetime(date_breaks="1 hour", minor_breaks = NULL, date_labels="%H:%M", expand=c(0,0))+theme(axis.text.x=element_text(angle=90))+labs(title="Bike demand over 24 hour period", x="Time of day")
+```
+
